@@ -1,0 +1,6 @@
+{
+  "name": "FAKEEXX SMART CLOCK",
+  "description": "Premium minimal smart clock, alarms, focus, timers, world clock, weather, and FX AI assistant by FAKEEXX / FX GROUP.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
