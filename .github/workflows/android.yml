@@ -1,6 +1,6 @@
 name: Build FX CLOCK APK
 
-on:
+"on":
 workflow_dispatch:
 push:
 branches:
