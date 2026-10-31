@@ -1,7 +1,14 @@
 package com.example
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -45,11 +52,20 @@ import com.example.ui.viewmodel.ClockAppViewModel
 
 class MainActivity : ComponentActivity() {
 
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            showOverlayPermissionPromptIfNeeded()
+        }
+
+    private val overlaySettingsLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
+
     private val viewModel: ClockAppViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        requestAppPermissionsIfNeeded()
 
         setContent {
             val themeConfig by viewModel.themeConfig.collectAsState()
@@ -188,6 +204,44 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun requestAppPermissionsIfNeeded() {
+        val prefs = getSharedPreferences("fx_clock_permission_prompts", MODE_PRIVATE)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
+            !prefs.getBoolean("notifications_prompted", false)
+        ) {
+            prefs.edit().putBoolean("notifications_prompted", true).apply()
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            showOverlayPermissionPromptIfNeeded()
+        }
+    }
+
+    private fun showOverlayPermissionPromptIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)) return
+
+        val prefs = getSharedPreferences("fx_clock_permission_prompts", MODE_PRIVATE)
+        if (prefs.getBoolean("overlay_prompted", false)) return
+        prefs.edit().putBoolean("overlay_prompted", true).apply()
+
+        AlertDialog.Builder(this)
+            .setTitle("Floating clock permission")
+            .setMessage(
+                "FX CLOCK can use this optional permission for a future floating-clock feature " +
+                    "that appears over other apps. Nothing is enabled automatically. " +
+                    "You can skip this and continue using the clock normally."
+            )
+            .setPositiveButton("Open settings") { _, _ ->
+                val settingsIntent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName")
+                )
+                overlaySettingsLauncher.launch(settingsIntent)
+            }
+            .setNegativeButton("Not now", null)
+            .show()
     }
 
     override fun onNewIntent(intent: Intent) {
